@@ -4,10 +4,10 @@ Living log. Update before `/clear` and when crossing a meaningful step.
 
 ## Current
 
-- **Milestone:** pre-M1 (scaffolding)
-- **Branch:** `feat/config-settings`
-- **Last done:** Pydantic Settings + cost-defense knobs landed (commit `e87b4c3`). Tests green.
-- **Next:** commits 3–7 of `steps/week1.md` — fetch (httpx + NCBI E-utilities) → DB schema → parse (pubmed_parser) → ingest pipeline → smoke test on 100 COPD papers.
+- **Milestone:** pre-M1 (ingest scaffold, Day 4/7 of `steps/week1.md` done)
+- **Branch:** `feat/db-schema`
+- **Last done:** SQLite schema landed. `src/rag_med/shared/db.py` with `connect()` (WAL + FK pragmas) + `init_schema()` DDL for `papers`, `paper_xml` (FK + CASCADE), `failed_papers` (CHECK on `failure_reason` enum). 8 tests green incl. FK enforcement, CHECK constraint, idempotent `INSERT OR IGNORE`.
+- **Next:** Day 5 parse (pubmed_parser wrapper + salvage rule) + MPS smoke on DeBERTa → Day 6 ingest pipeline → Day 7 smoke test on 100 COPD papers.
 - **Blockers:** none.
 
 ## Milestones
@@ -50,3 +50,5 @@ Work units, not weeks. ~10–12 calendar weeks at 15–20 hr/wk. Full detail in 
 
 - 2026-05-23 — wrote CLAUDE.md + PROGRESS.md from `.claude/research/` analysis.
 - 2026-05-22 — config commit `e87b4c3`.
+- 2026-05-24 — Day 3 ingest commit `f49a3b5`: httpx esearch/efetch_pubmed/efetch_pmc with rate guard + retry.
+- 2026-05-24 — Day 4 SQLite schema: papers + paper_xml + failed_papers, WAL + FK pragmas, CHECK enum on failure_reason. CLAUDE.md `## Hard rules` now mandates TDD.
