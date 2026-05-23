@@ -2,9 +2,16 @@
 
 Pneumology RAG with verifier-gated answers. Single-user tool for brother (MD/PhD). Hybrid retrieval (FAISS + BM25 + RRF + MedCPT cross-encoder) → Claude Sonnet generator → NLI + Haiku judge verifies every sentence against cited chunks.
 
+# Project Research
+
+@.claude/research/architecture.md
+@.claude/research/decisions.md
+@.claude/research/glossary.md
+
+
 ## Source of truth
 
-Locked decisions live in `.claude/research/`. **Read before non-trivial changes** — don't re-derive from code.
+Locked decisions live in `.claude/research/`. **Read before non-trivial changes and at the start of every conversation** — don't re-derive from code.
 
 - `decisions.md` — what we picked, why (Q1–Q23)
 - `architecture.md` — runtime behavior

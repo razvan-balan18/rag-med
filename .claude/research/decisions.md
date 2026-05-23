@@ -396,7 +396,7 @@ M1 acceptance ("brother sees streamed answer with fake green dots") needs a work
 - **NCBI API key — register day 1.** Free, ~5 min, requires NCBI account + email. Without key: 3 req/s. With key: 10 req/s. Goes in `.env` as `NCBI_API_KEY` + `NCBI_EMAIL` (NCBI requires email field on every request — politeness contract, not auth).
 - **HTTP library: `httpx` directly, not Biopython Entrez.** Biopython is heavyweight dep for one module, and its Entrez wrapper hides exactly the URL params and rate-limit headers you'll want to debug at M5. ~50 lines of `httpx` calls.
 - **E-utilities exclusively for M1.** Skip PMC OA Bulk FTP / OAI-PMH infra entirely until M5. 100 papers via `efetch` PMC = ~30 seconds even at 3 req/s.
-- **M1 esearch query:** `("Pulmonary Disease, Chronic Obstructive"[MeSH] OR "COPD"[Title/Abstract]) AND ("2020"[Date - Publication] : "3000"[Date - Publication]) AND "open access"[filter]` — `open access` filter guarantees every result has a PMCID (full-text path always exercised).
+- **M1 esearch query:** `("Pulmonary Disease, Chronic Obstructive"[MeSH] OR "COPD"[Title/Abstract]) AND ("2020"[Date - Publication] : "3000"[Date - Publication]) AND "pubmed pmc open access"[filter]` — PMC Open Access Subset filter guarantees every result has a PMCID (full-text path always exercised). **Drift fix 2026-05-24:** originally locked as `"open access"[filter]`; that string returns 0 hits against PubMed esearch. Correct PubMed syntax for the PMC OA subset is `"pubmed pmc open access"[filter]` — verified empirically during day-3 smoke (5 PMIDs, ~155 KB XML).
 
 #### Q22c — XML parsing
 - **`pubmed_parser` library for M1**, escape hatch to hand-rolled `lxml` at M5 if quality bad.
