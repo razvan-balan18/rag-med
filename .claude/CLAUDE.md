@@ -4,9 +4,11 @@ Pneumology RAG with verifier-gated answers. Single-user tool for brother (MD/PhD
 
 # Project Research
 
+Read this everytime a new conversation starts.
 @.claude/research/architecture.md
 @.claude/research/decisions.md
 @.claude/research/glossary.md
+@.claude/PROGRESS.md
 
 
 ## Source of truth
@@ -25,7 +27,7 @@ If code conflicts with research docs, research wins. Flag the drift.
 Current state lives in `PROGRESS.md`. **Update it before any `/clear` and when crossing a meaningful step** (commit landed, milestone reached, blocker found). Append a one-line entry to `Recent sessions` + edit `Current`.
 
 ## Hard rules
-
+- TDD always: failing test first, minimal impl, run green. No code without test
 - Three phases (`indexing` / `serving` / `eval`) never import each other. Share via `shared/`.
 - Two Anthropic clients: `generator_client` (Sonnet 4.6) + `judge_client` (Haiku 4.5). Never merge.
 - Follow `glossary.md` names: `paper` not `article`, `question` not `query`, `dense_search`/`lexical_search` not `semantic`/`keyword`, `n_deberta_tokens` not bare `n_tokens`, `paper-level` relevance.
