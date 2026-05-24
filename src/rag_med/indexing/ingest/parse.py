@@ -20,8 +20,30 @@ import io
 import logging
 
 import pubmed_parser as pp
+import pubmed_parser.pubmed_oa_parser as _oa
 
 logger = logging.getLogger(__name__)
+
+
+# Upstream bug (pubmed_parser 0.5.1): parse_pubmed_xml does
+#   `int(pub_date_dict["year"])` guarded by `except TypeError`, which lets
+# `KeyError` escape when XML has neither `ppub` nor `collection` pub-date with
+# a <year> child (common on epub-only papers — ~40% of recent PMC OA hits).
+# Patch parse_date to always seed year=None so int(None) -> TypeError -> None.
+_orig_parse_date = _oa.parse_date
+
+
+def _parse_date_with_year_default(tree, date_type):  # type: ignore[no-untyped-def]
+    d = _orig_parse_date(tree, date_type)
+    # Only seed year=None on the *last* fallback attempt ("collection") so the
+    # upstream ppub->collection probing still fires. int(None) -> TypeError ->
+    # pub_year=None in the caller (which is what we want).
+    if date_type == "collection":
+        d.setdefault("year", None)
+    return d
+
+
+_oa.parse_date = _parse_date_with_year_default
 
 
 def parse(xml: bytes) -> tuple[dict | None, str | None]:
