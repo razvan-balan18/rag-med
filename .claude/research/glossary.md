@@ -287,7 +287,7 @@ indexing/
 The 100-paper COPD-only sub-corpus used to bring up the end-to-end skeleton in week 1.
 - **Topic = COPD.** Not "pneumology in general."
 - **Date cutoff = 2020+.** Tighter than the full-corpus 2015+ cutoff.
-- **Full-text only.** Enforced via `"open access"[filter]` in the esearch query (every result has a PMCID).
+- **Full-text only.** Enforced via `"pubmed pmc open access"[filter]` in the esearch query (every result has a PMCID). See `decisions.md §Q22b` drift fix — the originally locked `"open access"[filter]` returns 0 hits.
 - Distinct from the M5 **full corpus** (~150k papers, MeSH Respiratory Tract Diseases tree + journal whitelist + 2015+).
 - **Banned synonyms:** `toy dataset`, `mini corpus`, `dev corpus`, `seed corpus`. Always `M1 toy corpus`.
 

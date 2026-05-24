@@ -4,11 +4,11 @@ Living log. Update before `/clear` and when crossing a meaningful step.
 
 ## Current
 
-- **Milestone:** week 1 done — M1 ingest scaffold landed. Ready for week 2: chunker → embedder → FAISS/BM25 → mocked-verifier `/ask`.
-- **Branch:** `feat/m1-smoke-day7`
-- **Last done:** Day 7 smoke green. 100/100 COPD papers ingested, 0 salvaged, 0 failed. All six Q22e gates pass (`tests/test_smoke_ingest.py`, ~99s incl. idempotent re-fetch). Two unblockers landed before the smoke: (a) `elink_pubmed_to_pmc` now batches GETs in chunks of 50 — NCBI stream-closes at ~100 ids in one URL (`fix(ingest): batch elink GETs to 50 PMIDs`, `c72d669`); (b) monkey-patch on `pubmed_parser.pubmed_oa_parser.parse_date` seeds `year=None` on the collection fallback, dodging the upstream `KeyError('year')` that was salvage-failing ~40% of epub-only papers (`fix(parse): patch pubmed_parser KeyError on missing pub-year`, `12a303b`). Smoke commit `9dfd7b2`. Full suite 38/38 green.
-- **Next:** Week 2 (commits 8–14): IMRaD chunker (350 DeBERTa-token target) → MedCPT-Article embedder → FAISS `IndexFlatIP` build → BM25 build → retrieval skeleton → end-to-end `/ask` with mocked verifier returning all-green (M1 acceptance per Q14).
-- **Blockers:** none. Drift worth folding into `decisions.md` next session: Q22b elink batch ceiling (≤50 ids/GET), Q22c pubmed_parser 0.5.1 `KeyError('year')` workaround.
+- **Milestone:** week 1 closed + week 2 plan written + week-1 drift folded into research docs. Ready for commit 8 (IMRaD chunker).
+- **Branch:** `main` after week-1 merge; week-2 Day-0 drift-fold edits uncommitted (user is committing + opening PR).
+- **Last done:** Wrote `steps/week2.md` (commits 8–14: chunker → embedder → FAISS → BM25 → retrieval skeleton → Sonnet generator + mock verifier → `/ask` SSE; M1 acceptance per Q14). Then executed week-2 Day 0 — folded three drift items into research docs (no code): `decisions.md §Q22e` updated to note `elink_pubmed_to_pmc` batches GETs at 50 ids per call (`c72d669`); `decisions.md §Q22c` got a new drift-fix bullet documenting the `pubmed_parser==0.5.1` `parse_date` `KeyError('year')` monkey-patch (`12a303b`) plus the `==0.5.1` pin + M5 cleanup path; `glossary.md` M1-toy-corpus filter corrected to `"pubmed pmc open access"[filter]` with Q22b backref. Q22b filter fix and Q23j DeBERTa swap were already in decisions.md — confirmed, no edit. Suggested commit msg: `docs(decisions): fold week-1 drift (elink batch, year patch, glossary filter)`.
+- **Next:** Commit 8 — IMRaD chunker per `steps/week2.md` Day 1 (Q5 + Q23e). ~180 LOC, TDD-first, fixture-driven tests, new `chunks` table DDL appended to `shared/db.py`.
+- **Blockers:** none.
 
 ## Milestones
 
@@ -55,3 +55,4 @@ Work units, not weeks. ~10–12 calendar weeks at 15–20 hr/wk. Full detail in 
 - 2026-05-24 — Day 5 parse: `pubmed_parser` wrapper + Q22d salvage rule, 4 JATS fixtures + 5 tests. Smoke on real PMC13197932 → 73 grouped sections. MPS DeBERTa smoke clean at 21 ms/pair on `cross-encoder/nli-deberta-v3-large` (spec model `microsoft/deberta-v3-large-mnli` 404'd on HF — drift in `decisions.md` Q22c + Q23j).
 - 2026-05-24 — Day 6 pipeline: `indexing/pipeline.py` async `run_fetch` + CLI `fetch` subcommand, structlog JSON to stdout. Added `pubmed.elink_pubmed_to_pmc` (PMID→PMCID, repeated `&id=` params), refactored `parse()` to return `(dict, reason)`. One-PMCID-per-efetch to dodge the multi-article concat quirk. 11 new tests over mocked I/O; full suite 32/32. Drift in `decisions.md` Q22e.
 - 2026-05-24 — Day 7 smoke + week-1 close: real M1 fetch (100/100 parsed). Six-gate `test_smoke_ingest.py` green incl. idempotency. Unblockers: elink batching at 50 (`c72d669`), `pubmed_parser` `KeyError('year')` patch on epub-only papers (`12a303b`). Smoke `9dfd7b2`. Branch `feat/m1-smoke-day7` pushed.
+- 2026-05-24 — Wrote `steps/week2.md` (commits 8–14, M1 acceptance). Executed Day 0: folded week-1 drift into `decisions.md §Q22c` + `§Q22e` + `glossary.md` M1-toy-corpus. Three files changed, no code. Ready to commit + PR.
