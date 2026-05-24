@@ -4,11 +4,11 @@ Living log. Update before `/clear` and when crossing a meaningful step.
 
 ## Current
 
-- **Milestone:** pre-M1 (ingest scaffold, Day 4/7 of `steps/week1.md` done)
-- **Branch:** `feat/db-schema`
-- **Last done:** SQLite schema landed. `src/rag_med/shared/db.py` with `connect()` (WAL + FK pragmas) + `init_schema()` DDL for `papers`, `paper_xml` (FK + CASCADE), `failed_papers` (CHECK on `failure_reason` enum). 8 tests green incl. FK enforcement, CHECK constraint, idempotent `INSERT OR IGNORE`.
-- **Next:** Day 5 parse (pubmed_parser wrapper + salvage rule) + MPS smoke on DeBERTa → Day 6 ingest pipeline → Day 7 smoke test on 100 COPD papers.
-- **Blockers:** none.
+- **Milestone:** pre-M1 (ingest scaffold, Day 5/7 of `steps/week1.md` done)
+- **Branch:** `feat/parse`
+- **Last done:** parse landed. `src/rag_med/indexing/ingest/parse.py` wraps `pubmed_parser.parse_pubmed_xml` + `parse_pubmed_paragraph(all_paragraph=True)`, groups paragraphs by section title, applies Q22d salvage rule (None iff no title OR no abstract+body OR XML unparseable). 5 unit tests green on JATS fixtures + real-PMC smoke (73 sections on PMC13197932). MPS DeBERTa smoke clean (~21 ms/pair, no CPU fallback) — but spec model `microsoft/deberta-v3-large-mnli` gone from HF; used `cross-encoder/nli-deberta-v3-large`. Both drifts logged in `decisions.md` Q22c + Q23j.
+- **Next:** Day 6 ingest pipeline (`indexing/pipeline.py fetch`) wiring esearch → efetch_pmc → parse → INSERT, backfilling PMID/PMCID from esearch (parser leaves them empty). Day 7 smoke gate on 100 COPD papers.
+- **Blockers:** none. M2 verifier model needs re-lock (Q23f) — not Week 1.
 
 ## Milestones
 
@@ -52,3 +52,4 @@ Work units, not weeks. ~10–12 calendar weeks at 15–20 hr/wk. Full detail in 
 - 2026-05-22 — config commit `e87b4c3`.
 - 2026-05-24 — Day 3 ingest commit `f49a3b5`: httpx esearch/efetch_pubmed/efetch_pmc with rate guard + retry.
 - 2026-05-24 — Day 4 SQLite schema: papers + paper_xml + failed_papers, WAL + FK pragmas, CHECK enum on failure_reason. CLAUDE.md `## Hard rules` now mandates TDD.
+- 2026-05-24 — Day 5 parse: `pubmed_parser` wrapper + Q22d salvage rule, 4 JATS fixtures + 5 tests. Smoke on real PMC13197932 → 73 grouped sections. MPS DeBERTa smoke clean at 21 ms/pair on `cross-encoder/nli-deberta-v3-large` (spec model `microsoft/deberta-v3-large-mnli` 404'd on HF — drift in `decisions.md` Q22c + Q23j).

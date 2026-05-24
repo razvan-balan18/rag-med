@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE article PUBLIC "-//NLM//DTD JATS (Z39.96) Journal Archiving and Interchange DTD v1.2 20190208//EN" "JATS-archivearticle1.dtd">
+<article xmlns:xlink="http://www.w3.org/1999/xlink" article-type="research-article">
+  <front>
+    <journal-meta>
+      <journal-id journal-id-type="nlm-ta">Test J Pulm</journal-id>
+      <journal-title-group>
+        <journal-title>Test Journal of Pulmonology</journal-title>
+      </journal-title-group>
+    </journal-meta>
+    <article-meta>
+      <article-id pub-id-type="pmid">11111111</article-id>
+      <article-id pub-id-type="pmc">PMC1111111</article-id>
+      <article-id pub-id-type="doi">10.0000/test.1</article-id>
+      <article-categories>
+        <subj-group subj-group-type="MeSH">
+          <subject>Pulmonary Disease, Chronic Obstructive</subject>
+          <subject>Spirometry</subject>
+        </subj-group>
+      </article-categories>
+      <title-group>
+        <article-title>Long-acting bronchodilators in stable COPD</article-title>
+      </title-group>
+      <contrib-group>
+        <contrib contrib-type="author">
+          <name><surname>Smith</surname><given-names>Jane</given-names></name>
+          <xref ref-type="aff" rid="aff1"/>
+        </contrib>
+      </contrib-group>
+      <aff id="aff1">University Hospital</aff>
+      <pub-date pub-type="ppub">
+        <year>2023</year>
+      </pub-date>
+      <abstract>
+        <p>Background: COPD patients benefit from bronchodilators. Methods: RCT of 200 patients.</p>
+      </abstract>
+    </article-meta>
+  </front>
+  <body>
+    <sec>
+      <title>Introduction</title>
+      <p>COPD remains a leading cause of mortality worldwide <xref ref-type="bibr" rid="b1">1</xref>.</p>
+      <p>Long-acting bronchodilators are first-line therapy.</p>
+    </sec>
+    <sec>
+      <title>Methods</title>
+      <p>We enrolled 200 patients with moderate to severe COPD per GOLD criteria.</p>
+    </sec>
+    <sec>
+      <title>Results</title>
+      <p>FEV1 improved by 120 mL at 12 weeks (p&lt;0.01).</p>
+    </sec>
+  </body>
+</article>
