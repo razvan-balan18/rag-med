@@ -10,7 +10,8 @@ def _xml(name: str) -> bytes:
 
 
 def test_full_text_paper_returns_dict_with_sections():
-    out = parse(_xml("pmc_full_text.xml"))
+    out, reason = parse(_xml("pmc_full_text.xml"))
+    assert reason is None
     assert out is not None
     assert out["pmid"] == "11111111"
     assert out["pmcid"] == "PMC1111111"
@@ -30,7 +31,8 @@ def test_full_text_paper_returns_dict_with_sections():
 
 
 def test_abstract_only_paper_returns_dict_with_empty_sections():
-    out = parse(_xml("pmc_abstract_only.xml"))
+    out, reason = parse(_xml("pmc_abstract_only.xml"))
+    assert reason is None
     assert out is not None
     assert out["pmid"] == "22222222"
     assert out["pmcid"] == ""
@@ -41,12 +43,18 @@ def test_abstract_only_paper_returns_dict_with_empty_sections():
 
 
 def test_salvage_drops_paper_without_title():
-    assert parse(_xml("pmc_no_title.xml")) is None
+    out, reason = parse(_xml("pmc_no_title.xml"))
+    assert out is None
+    assert reason == "missing_title"
 
 
 def test_salvage_drops_paper_without_abstract_and_body():
-    assert parse(_xml("pmc_no_content.xml")) is None
+    out, reason = parse(_xml("pmc_no_content.xml"))
+    assert out is None
+    assert reason == "no_content"
 
 
-def test_unparseable_xml_returns_none():
-    assert parse(b"not xml at all") is None
+def test_unparseable_xml_returns_xml_parse_error():
+    out, reason = parse(b"not xml at all")
+    assert out is None
+    assert reason == "xml_parse_error"

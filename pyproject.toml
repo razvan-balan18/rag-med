@@ -9,6 +9,7 @@ dependencies = [
     "pyyaml>=6.0",
     "httpx>=0.28",
     "pubmed-parser>=0.5",
+    "structlog>=24.0",
 ]
 
 [dependency-groups]

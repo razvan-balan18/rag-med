@@ -1,13 +1,14 @@
 """Parse PMC OA JATS XML bytes into a structured paper dict.
 
-wraps `pubmed_parser.parse_pubmed_xml` (metadata + abstract) 
+wraps `pubmed_parser.parse_pubmed_xml` (metadata + abstract)
 wraps `pubmed_parser.parse_pubmed_paragraph` (body sections)
 
-Salvage rule: returns None iff
-  - title missing, OR
-  - abstract missing AND no body sections, OR
-  - XML unparseable.
-Caller writes a `failed_papers` row with the appropriate reason.
+Returns (paper_dict, None) on success.
+Returns (None, failure_reason) on salvage failure, where reason matches
+the `failed_papers.failure_reason` enum (db.py FAILURE_REASONS):
+  - "xml_parse_error" — pubmed_parser raised on the metadata XML
+  - "missing_title"   — title element empty / absent
+  - "no_content"      — both abstract empty AND no body sections parsed
 
 Per-paragraph forgiveness: a paragraph that fails to stringify is
 dropped silently; the rest of the paper is kept.
@@ -23,24 +24,24 @@ import pubmed_parser as pp
 logger = logging.getLogger(__name__)
 
 
-def parse(xml: bytes) -> dict | None:
-    """Parse JATS PMC XML bytes. Returns structured dict or None on salvage failure."""
+def parse(xml: bytes) -> tuple[dict | None, str | None]:
+    """Parse JATS PMC XML. Returns (dict, None) or (None, failure_reason)."""
     try:
         meta = pp.parse_pubmed_xml(io.BytesIO(xml))
     except Exception as e:
         logger.warning("parse_pubmed_xml failed: %s", e)
-        return None
+        return None, "xml_parse_error"
 
     title = (meta.get("full_title") or "").strip()
     abstract = (meta.get("abstract") or "").strip()
     sections = _parse_sections(xml)
 
     if not title:
-        return None
+        return None, "missing_title"
     if not abstract and not sections:
-        return None
+        return None, "no_content"
 
-    return {
+    paper = {
         "pmid": meta.get("pmid") or "",
         "pmcid": meta.get("pmc") or "",
         "title": title,
@@ -51,6 +52,7 @@ def parse(xml: bytes) -> dict | None:
         "year": meta.get("publication_year"),
         "authors": meta.get("author_list") or [],
     }
+    return paper, None
 
 
 def _parse_sections(xml: bytes) -> list[dict[str, str]]:
