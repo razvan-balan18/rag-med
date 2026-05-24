@@ -4,11 +4,11 @@ Living log. Update before `/clear` and when crossing a meaningful step.
 
 ## Current
 
-- **Milestone:** pre-M1 (ingest scaffold, Day 6/7 of `steps/week1.md` done)
-- **Branch:** `feat/pipeline`
-- **Last done:** pipeline landed. `src/rag_med/indexing/pipeline.py` (`run_fetch` async orchestrator + CLI `fetch` subcommand) wires esearch → elink → efetch_pmc(per-PMCID) → parse → INSERT OR IGNORE. `parse()` refactored to `(dict | None, reason | None)` so pipeline can write the right `failed_papers.failure_reason`. `pubmed.elink_pubmed_to_pmc` added (one HTTP call, repeated `&id=` params). 11 pipeline tests green over mocked I/O + in-memory SQLite (happy path, salvage→failed_papers, parse error, no-PMCID mapping, idempotency, mixed batches, efetch exception, empty esearch, limit respect). Full suite 32/32 green. Drift logged in `decisions.md` Q22e.
-- **Next:** Day 7 — real-network smoke: `python -m rag_med.indexing.pipeline fetch --query-preset copd-m1 --limit 100`, then `tests/test_smoke_ingest.py` against the Q22e gates (≥95 papers, ≥80 with PMCID, <5 failed, idempotent re-run).
-- **Blockers:** none.
+- **Milestone:** week 1 done — M1 ingest scaffold landed. Ready for week 2: chunker → embedder → FAISS/BM25 → mocked-verifier `/ask`.
+- **Branch:** `feat/m1-smoke-day7`
+- **Last done:** Day 7 smoke green. 100/100 COPD papers ingested, 0 salvaged, 0 failed. All six Q22e gates pass (`tests/test_smoke_ingest.py`, ~99s incl. idempotent re-fetch). Two unblockers landed before the smoke: (a) `elink_pubmed_to_pmc` now batches GETs in chunks of 50 — NCBI stream-closes at ~100 ids in one URL (`fix(ingest): batch elink GETs to 50 PMIDs`, `c72d669`); (b) monkey-patch on `pubmed_parser.pubmed_oa_parser.parse_date` seeds `year=None` on the collection fallback, dodging the upstream `KeyError('year')` that was salvage-failing ~40% of epub-only papers (`fix(parse): patch pubmed_parser KeyError on missing pub-year`, `12a303b`). Smoke commit `9dfd7b2`. Full suite 38/38 green.
+- **Next:** Week 2 (commits 8–14): IMRaD chunker (350 DeBERTa-token target) → MedCPT-Article embedder → FAISS `IndexFlatIP` build → BM25 build → retrieval skeleton → end-to-end `/ask` with mocked verifier returning all-green (M1 acceptance per Q14).
+- **Blockers:** none. Drift worth folding into `decisions.md` next session: Q22b elink batch ceiling (≤50 ids/GET), Q22c pubmed_parser 0.5.1 `KeyError('year')` workaround.
 
 ## Milestones
 
@@ -54,3 +54,4 @@ Work units, not weeks. ~10–12 calendar weeks at 15–20 hr/wk. Full detail in 
 - 2026-05-24 — Day 4 SQLite schema: papers + paper_xml + failed_papers, WAL + FK pragmas, CHECK enum on failure_reason. CLAUDE.md `## Hard rules` now mandates TDD.
 - 2026-05-24 — Day 5 parse: `pubmed_parser` wrapper + Q22d salvage rule, 4 JATS fixtures + 5 tests. Smoke on real PMC13197932 → 73 grouped sections. MPS DeBERTa smoke clean at 21 ms/pair on `cross-encoder/nli-deberta-v3-large` (spec model `microsoft/deberta-v3-large-mnli` 404'd on HF — drift in `decisions.md` Q22c + Q23j).
 - 2026-05-24 — Day 6 pipeline: `indexing/pipeline.py` async `run_fetch` + CLI `fetch` subcommand, structlog JSON to stdout. Added `pubmed.elink_pubmed_to_pmc` (PMID→PMCID, repeated `&id=` params), refactored `parse()` to return `(dict, reason)`. One-PMCID-per-efetch to dodge the multi-article concat quirk. 11 new tests over mocked I/O; full suite 32/32. Drift in `decisions.md` Q22e.
+- 2026-05-24 — Day 7 smoke + week-1 close: real M1 fetch (100/100 parsed). Six-gate `test_smoke_ingest.py` green incl. idempotency. Unblockers: elink batching at 50 (`c72d669`), `pubmed_parser` `KeyError('year')` patch on epub-only papers (`12a303b`). Smoke `9dfd7b2`. Branch `feat/m1-smoke-day7` pushed.
