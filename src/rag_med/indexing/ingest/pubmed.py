@@ -29,6 +29,7 @@ M1_QUERY = (
 )
 
 MAX_CONCURRENT = 10  # Q22b: 10 req/s with API key
+ELINK_BATCH = 50  # NCBI elink GETs with >~50 ids stream-close mid-response
 
 RETRY_ATTEMPTS = 3
 RETRY_BACKOFF_S = 1.0
@@ -124,15 +125,9 @@ async def efetch_pmc(pmcids: list[str]) -> bytes:
     return await _efetch("pmc", pmcids)
 
 
-async def elink_pubmed_to_pmc(pmids: list[str]) -> dict[str, str]:
-    """Map PMIDs -> PMCIDs (with 'PMC' prefix) via NCBI elink.
-
-    PMIDs with no PMC counterpart are omitted from the returned dict.
-    Multiple `&id=` params (one per PMID) yield one linkset per input id,
-    which is what we need for a deterministic pmid->pmcid mapping.
-    """
-    if not pmids:
-        return {}
+async def _elink_batch(
+    client: httpx.AsyncClient, sem: asyncio.Semaphore, pmids: list[str]
+) -> dict[str, str]:
     params: list[tuple[str, str]] = [
         ("dbfrom", "pubmed"),
         ("db", "pmc"),
@@ -141,9 +136,7 @@ async def elink_pubmed_to_pmc(pmids: list[str]) -> dict[str, str]:
     params.extend(("id", p) for p in pmids)
     params.extend(_politeness_params().items())
 
-    sem = asyncio.Semaphore(MAX_CONCURRENT)
-    async with _client_factory() as client:
-        r = await _get_with_retry(client, "/elink.fcgi", params, sem)
+    r = await _get_with_retry(client, "/elink.fcgi", params, sem)
     data = r.json()
 
     mapping: dict[str, str] = {}
@@ -159,6 +152,24 @@ async def elink_pubmed_to_pmc(pmids: list[str]) -> dict[str, str]:
             if links:
                 mapping[pmid] = f"PMC{links[0]}"
             break
+    return mapping
+
+
+async def elink_pubmed_to_pmc(pmids: list[str]) -> dict[str, str]:
+    """Map PMIDs -> PMCIDs (with 'PMC' prefix) via NCBI elink.
+
+    PMIDs with no PMC counterpart are omitted from the returned dict.
+    Batched: NCBI closes the response stream when ~100 ids are passed in one GET
+    (observed 2026-05-24). Chunk to ELINK_BATCH per request.
+    """
+    if not pmids:
+        return {}
+    sem = asyncio.Semaphore(MAX_CONCURRENT)
+    mapping: dict[str, str] = {}
+    async with _client_factory() as client:
+        for i in range(0, len(pmids), ELINK_BATCH):
+            chunk = pmids[i : i + ELINK_BATCH]
+            mapping.update(await _elink_batch(client, sem, chunk))
     return mapping
 
 
