@@ -51,7 +51,7 @@ def _client_factory() -> httpx.AsyncClient:
 async def _get_with_retry(
     client: httpx.AsyncClient,
     url: str,
-    params: dict[str, str],
+    params: dict[str, str] | list[tuple[str, str]],
     sem: asyncio.Semaphore,
 ) -> httpx.Response:
     last_exc: Exception | None = None
@@ -122,6 +122,44 @@ async def efetch_pubmed(pmids: list[str]) -> bytes:
 async def efetch_pmc(pmcids: list[str]) -> bytes:
     """Return raw PMC XML for the given PMCIDs (full-text body)."""
     return await _efetch("pmc", pmcids)
+
+
+async def elink_pubmed_to_pmc(pmids: list[str]) -> dict[str, str]:
+    """Map PMIDs -> PMCIDs (with 'PMC' prefix) via NCBI elink.
+
+    PMIDs with no PMC counterpart are omitted from the returned dict.
+    Multiple `&id=` params (one per PMID) yield one linkset per input id,
+    which is what we need for a deterministic pmid->pmcid mapping.
+    """
+    if not pmids:
+        return {}
+    params: list[tuple[str, str]] = [
+        ("dbfrom", "pubmed"),
+        ("db", "pmc"),
+        ("retmode", "json"),
+    ]
+    params.extend(("id", p) for p in pmids)
+    params.extend(_politeness_params().items())
+
+    sem = asyncio.Semaphore(MAX_CONCURRENT)
+    async with _client_factory() as client:
+        r = await _get_with_retry(client, "/elink.fcgi", params, sem)
+    data = r.json()
+
+    mapping: dict[str, str] = {}
+    for linkset in data.get("linksets", []):
+        ids = linkset.get("ids") or []
+        if not ids:
+            continue
+        pmid = str(ids[0])
+        for lsdb in linkset.get("linksetdbs") or []:
+            if lsdb.get("linkname") != "pubmed_pmc":
+                continue
+            links = lsdb.get("links") or []
+            if links:
+                mapping[pmid] = f"PMC{links[0]}"
+            break
+    return mapping
 
 
 async def _smoke() -> None:

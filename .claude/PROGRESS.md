@@ -4,11 +4,11 @@ Living log. Update before `/clear` and when crossing a meaningful step.
 
 ## Current
 
-- **Milestone:** pre-M1 (ingest scaffold, Day 5/7 of `steps/week1.md` done)
-- **Branch:** `feat/parse`
-- **Last done:** parse landed. `src/rag_med/indexing/ingest/parse.py` wraps `pubmed_parser.parse_pubmed_xml` + `parse_pubmed_paragraph(all_paragraph=True)`, groups paragraphs by section title, applies Q22d salvage rule (None iff no title OR no abstract+body OR XML unparseable). 5 unit tests green on JATS fixtures + real-PMC smoke (73 sections on PMC13197932). MPS DeBERTa smoke clean (~21 ms/pair, no CPU fallback) — but spec model `microsoft/deberta-v3-large-mnli` gone from HF; used `cross-encoder/nli-deberta-v3-large`. Both drifts logged in `decisions.md` Q22c + Q23j.
-- **Next:** Day 6 ingest pipeline (`indexing/pipeline.py fetch`) wiring esearch → efetch_pmc → parse → INSERT, backfilling PMID/PMCID from esearch (parser leaves them empty). Day 7 smoke gate on 100 COPD papers.
-- **Blockers:** none. M2 verifier model needs re-lock (Q23f) — not Week 1.
+- **Milestone:** pre-M1 (ingest scaffold, Day 6/7 of `steps/week1.md` done)
+- **Branch:** `feat/pipeline`
+- **Last done:** pipeline landed. `src/rag_med/indexing/pipeline.py` (`run_fetch` async orchestrator + CLI `fetch` subcommand) wires esearch → elink → efetch_pmc(per-PMCID) → parse → INSERT OR IGNORE. `parse()` refactored to `(dict | None, reason | None)` so pipeline can write the right `failed_papers.failure_reason`. `pubmed.elink_pubmed_to_pmc` added (one HTTP call, repeated `&id=` params). 11 pipeline tests green over mocked I/O + in-memory SQLite (happy path, salvage→failed_papers, parse error, no-PMCID mapping, idempotency, mixed batches, efetch exception, empty esearch, limit respect). Full suite 32/32 green. Drift logged in `decisions.md` Q22e.
+- **Next:** Day 7 — real-network smoke: `python -m rag_med.indexing.pipeline fetch --query-preset copd-m1 --limit 100`, then `tests/test_smoke_ingest.py` against the Q22e gates (≥95 papers, ≥80 with PMCID, <5 failed, idempotent re-run).
+- **Blockers:** none.
 
 ## Milestones
 
@@ -53,3 +53,4 @@ Work units, not weeks. ~10–12 calendar weeks at 15–20 hr/wk. Full detail in 
 - 2026-05-24 — Day 3 ingest commit `f49a3b5`: httpx esearch/efetch_pubmed/efetch_pmc with rate guard + retry.
 - 2026-05-24 — Day 4 SQLite schema: papers + paper_xml + failed_papers, WAL + FK pragmas, CHECK enum on failure_reason. CLAUDE.md `## Hard rules` now mandates TDD.
 - 2026-05-24 — Day 5 parse: `pubmed_parser` wrapper + Q22d salvage rule, 4 JATS fixtures + 5 tests. Smoke on real PMC13197932 → 73 grouped sections. MPS DeBERTa smoke clean at 21 ms/pair on `cross-encoder/nli-deberta-v3-large` (spec model `microsoft/deberta-v3-large-mnli` 404'd on HF — drift in `decisions.md` Q22c + Q23j).
+- 2026-05-24 — Day 6 pipeline: `indexing/pipeline.py` async `run_fetch` + CLI `fetch` subcommand, structlog JSON to stdout. Added `pubmed.elink_pubmed_to_pmc` (PMID→PMCID, repeated `&id=` params), refactored `parse()` to return `(dict, reason)`. One-PMCID-per-efetch to dodge the multi-article concat quirk. 11 new tests over mocked I/O; full suite 32/32. Drift in `decisions.md` Q22e.

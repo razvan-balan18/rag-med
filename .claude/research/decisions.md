@@ -433,6 +433,13 @@ Concrete commit order:
 ```
 Each commit ~50–150 LOC. ~1–2 days at a normal pace.
 
+**Drift fix 2026-05-24 (day-6 impl):** the step-6 `for each PMID: efetch → save paper_xml row` line is under-specified because `parse.py` (step 5) only handles PMC JATS, not the MEDLINE `<PubmedArticleSet>` shape that `efetch_pubmed` returns. Resolved by inserting an `elink` step between esearch and efetch:
+- `pubmed.elink_pubmed_to_pmc(pmids) -> {pmid: "PMC<n>"}` — one HTTP call, multiple `&id=` params yield per-PMID linksets. PMIDs with no PMC counterpart are omitted from the result.
+- PMIDs without a PMC mapping land in `failed_papers` with `failure_reason="no_content"` (no full-text retrievable through this pipeline).
+- `efetch_pmc` is called **one PMCID at a time** rather than batched. Avoids the multi-article concatenation quirk in `pubmed_parser.parse_article_meta` (`.find` returns only the first `<article-meta>`). Wall cost at the 10 req/s rate limit ≈ 10 s for limit=100 — still inside the spec's 30 s budget.
+- Pipeline-level `failure_reason` classification: `efetch_pmc` exception → `xml_parse_error` (retry budget burned in `_get_with_retry`); `parse()` returns its own reason for `xml_parse_error` / `missing_title` / `no_content`. `encoding_error` reserved for an XML decode path not exercised by lxml's tolerant reader.
+- `INSERT OR IGNORE` is used on `failed_papers` too, so idempotency holds across re-runs. **Edge case (deferred):** a paper that fails on attempt 1 then succeeds on attempt 2 keeps the stale `failed_papers` row alongside the new `papers` row. Triage during Day-7 smoke or clean up in M5.
+
 **Smoke test for "ingest done"** (`tests/test_smoke_ingest.py`):
 - `papers` table has ≥ 95 rows (allows up to 5% salvage loss)
 - Every row has `title` non-null
