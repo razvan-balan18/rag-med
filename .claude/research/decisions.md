@@ -403,6 +403,7 @@ M1 acceptance ("brother sees streamed answer with fake green dots") needs a work
 - Library returns paragraphs tagged by `section_name` — exact shape the IMRaD chunker wants. ~50 lines of integration vs ~300 lines of hand-rolled XPath parsing.
 - Module boundary is `indexing/ingest/parse.py` — single-file replacement if M5 quality assessment forces a swap.
 - **Failure mode is graceful:** if `pubmed_parser` chokes on a paper, log to `failed_papers` table, continue. Plan §8.3 already specifies this.
+- **Drift fix 2026-05-24 (day-5 smoke):** real NCBI PMC XML uses `<article-id pub-id-type="pmcid">` (with `"PMC"` prefix in the value) and frequently omits a `pub-id-type="pmid"` element entirely; `pubmed_parser.parse_article_meta` looks for the older `"pmc"` / `"pmid"` tags and returns empty strings for both. Not a parse-side bug — `pipeline.py` already holds the PMID from `esearch` results and can backfill the PMCID from the same call (or `elink`) on `INSERT`. `parse.py` keeps the empty-string fallback; pipeline owns the canonical IDs.
 
 #### Q22d — Malformed-XML salvage rule
 Resolves the "salvage rules" sub-bullet from Q19.
@@ -482,7 +483,7 @@ Operational prereqs surfaced in final grill. Each is cheap (~5 min) but blocking
 ### Risk flags (locked Q23j, not in original plan)
 
 - **Sonnet 4.6 deprecation mid-project.** ~10-week window. Anthropic typically gives months of notice; budget headroom enough to swap to next Sonnet without cost re-plan. Watch model-release announcements.
-- **MPS PyTorch quirks.** Some DeBERTa/MedCPT ops may not be MPS-implemented; fallback = CPU per-op. Smoke-test at commit 5 (parse, before pipeline): load one model on MPS, dummy forward. If any op falls back loudly, document in `decisions.md` and pin the model layer to CPU.
+- **MPS PyTorch quirks.** Some DeBERTa/MedCPT ops may not be MPS-implemented; fallback = CPU per-op. Smoke-test at commit 5 (parse, before pipeline): load one model on MPS, dummy forward. If any op falls back loudly, document in `decisions.md` and pin the model layer to CPU. **Smoke result 2026-05-24:** clean — no CPU-fallback warnings, ~21 ms/pair forward on M5 Pro MPS, sanity pair `("Patients had COPD.", "Patients had a respiratory condition.")` → `entailment` p=0.9986. **Model swap:** the canonical `microsoft/deberta-v3-large-mnli` (Q23f) is no longer on HuggingFace Hub (404 / repo removed). Day-5 smoke used `cross-encoder/nli-deberta-v3-large` — same DeBERTa-v3-large backbone + NLI head, same MPS-coverage answer. M2 verifier must re-lock the production model (candidates: `cross-encoder/nli-deberta-v3-large`, `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli`); update Q23f size estimate after pick.
 - **`rerank_floor` calibration has no knee.** Plan Q9b assumes a clear knee in the rerank-score-vs-recall curve. If flat, hand-pick value, flag honestly in writeup.
 
 ---
