@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<article article-type="research-article">
+  <front>
+    <article-meta>
+      <article-id pub-id-type="pmid">44444444</article-id>
+      <title-group>
+        <article-title>A title but no abstract and no body</article-title>
+      </title-group>
+      <pub-date pub-type="ppub"><year>2024</year></pub-date>
+    </article-meta>
+  </front>
+</article>
