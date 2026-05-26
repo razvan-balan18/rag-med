@@ -10,6 +10,8 @@ dependencies = [
     "httpx>=0.28",
     "pubmed-parser>=0.5",
     "structlog>=24.0",
+    "pysbd>=0.3",
+    "transformers>=4.40",
 ]
 
 [dependency-groups]

@@ -4,11 +4,11 @@ Living log. Update before `/clear` and when crossing a meaningful step.
 
 ## Current
 
-- **Milestone:** week 1 closed + week 2 plan written + week-1 drift folded into research docs. Ready for commit 8 (IMRaD chunker).
-- **Branch:** `main` after week-1 merge; week-2 Day-0 drift-fold edits uncommitted (user is committing + opening PR).
-- **Last done:** Wrote `steps/week2.md` (commits 8–14: chunker → embedder → FAISS → BM25 → retrieval skeleton → Sonnet generator + mock verifier → `/ask` SSE; M1 acceptance per Q14). Then executed week-2 Day 0 — folded three drift items into research docs (no code): `decisions.md §Q22e` updated to note `elink_pubmed_to_pmc` batches GETs at 50 ids per call (`c72d669`); `decisions.md §Q22c` got a new drift-fix bullet documenting the `pubmed_parser==0.5.1` `parse_date` `KeyError('year')` monkey-patch (`12a303b`) plus the `==0.5.1` pin + M5 cleanup path; `glossary.md` M1-toy-corpus filter corrected to `"pubmed pmc open access"[filter]` with Q22b backref. Q22b filter fix and Q23j DeBERTa swap were already in decisions.md — confirmed, no edit. Suggested commit msg: `docs(decisions): fold week-1 drift (elink batch, year patch, glossary filter)`.
-- **Next:** Commit 8 — IMRaD chunker per `steps/week2.md` Day 1 (Q5 + Q23e). ~180 LOC, TDD-first, fixture-driven tests, new `chunks` table DDL appended to `shared/db.py`.
-- **Blockers:** none.
+- **Milestone:** week 2 Day 1 done — commit 8 (IMRaD chunker) implemented + green. Ready for Day 2 (chunk pipeline subcommand + MedCPT-Article embedder).
+- **Branch:** about to push `feat/m1-chunker-day1` off `main`.
+- **Last done:** Day 1 commit 8 — `src/rag_med/indexing/chunk.py` (~175 LOC) with `Chunk` dataclass, pysbd sentence splitter, greedy-pack to 300 DeBERTa tokens (ceiling 400), section-name → enum substring map, abstract/table/caption special-cased, `chunk_id={pmid}_{section_type}_{ordinal:02d}`. DeBERTa + MedCPT-Article tokenizers lazy-loaded via `transformers.AutoTokenizer`. `shared/db.py` gained `chunks` table DDL + `SECTION_TYPES` tuple + `chunks_pmid_idx`/`chunks_section_type_idx`. `tests/test_chunk.py` (14 tests, tokenizers monkeypatched to word-split, real pysbd for abbreviation test) + 4 new tests in `test_db_schema.py`. Deps added: `pysbd>=0.3`, `transformers>=4.40`. Suite: 50/50 unit green; `test_smoke_ingest.py::test_idempotent_rerun` flaked on NCBI peer-closed-connection (network, unrelated to chunker).
+- **Next:** Day 2 commit 9 — `python -m rag_med.indexing.pipeline chunk` subcommand + `src/rag_med/indexing/embed.py` MedCPT-Article-Encoder on MPS. ~150 LOC.
+- **Blockers:** none. Smoke flake to retry next session.
 
 ## Milestones
 
@@ -56,3 +56,4 @@ Work units, not weeks. ~10–12 calendar weeks at 15–20 hr/wk. Full detail in 
 - 2026-05-24 — Day 6 pipeline: `indexing/pipeline.py` async `run_fetch` + CLI `fetch` subcommand, structlog JSON to stdout. Added `pubmed.elink_pubmed_to_pmc` (PMID→PMCID, repeated `&id=` params), refactored `parse()` to return `(dict, reason)`. One-PMCID-per-efetch to dodge the multi-article concat quirk. 11 new tests over mocked I/O; full suite 32/32. Drift in `decisions.md` Q22e.
 - 2026-05-24 — Day 7 smoke + week-1 close: real M1 fetch (100/100 parsed). Six-gate `test_smoke_ingest.py` green incl. idempotency. Unblockers: elink batching at 50 (`c72d669`), `pubmed_parser` `KeyError('year')` patch on epub-only papers (`12a303b`). Smoke `9dfd7b2`. Branch `feat/m1-smoke-day7` pushed.
 - 2026-05-24 — Wrote `steps/week2.md` (commits 8–14, M1 acceptance). Executed Day 0: folded week-1 drift into `decisions.md §Q22c` + `§Q22e` + `glossary.md` M1-toy-corpus. Three files changed, no code. Ready to commit + PR.
+- 2026-05-26 — Day 1 commit 8: IMRaD chunker (`indexing/chunk.py`) + `chunks` DDL in `shared/db.py` + 14 chunker tests + 4 schema tests. pysbd + transformers added. 50/50 unit green; smoke `test_idempotent_rerun` flaked on NCBI network. Branch `feat/m1-chunker-day1`.
