@@ -15,6 +15,17 @@ FAILURE_REASONS: tuple[str, ...] = (
     "encoding_error",
 )
 
+SECTION_TYPES: tuple[str, ...] = (
+    "abstract",
+    "introduction",
+    "methods",
+    "results",
+    "discussion",
+    "table",
+    "caption",
+    "other",
+)
+
 _DDL = """
 CREATE TABLE IF NOT EXISTS papers (
     pmid             TEXT PRIMARY KEY,
@@ -42,6 +53,23 @@ CREATE TABLE IF NOT EXISTS failed_papers (
     )),
     attempted_at    TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS chunks (
+    chunk_id          TEXT PRIMARY KEY,
+    pmid              TEXT NOT NULL,
+    section_type      TEXT NOT NULL CHECK (section_type IN (
+        'abstract', 'introduction', 'methods', 'results',
+        'discussion', 'table', 'caption', 'other'
+    )),
+    ordinal           INTEGER NOT NULL,
+    text              TEXT NOT NULL,
+    n_deberta_tokens  INTEGER NOT NULL,
+    n_medcpt_tokens   INTEGER NOT NULL,
+    FOREIGN KEY (pmid) REFERENCES papers(pmid) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS chunks_pmid_idx ON chunks(pmid);
+CREATE INDEX IF NOT EXISTS chunks_section_type_idx ON chunks(section_type);
 """
 
 

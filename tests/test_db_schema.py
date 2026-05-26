@@ -83,6 +83,67 @@ def test_papers_title_not_null(tmp_path):
         conn.commit()
 
 
+def test_chunks_table_created(tmp_path):
+    conn = connect(tmp_path / "t.db")
+    init_schema(conn)
+    assert "chunks" in _table_names(conn)
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(chunks)")}
+    assert {
+        "chunk_id",
+        "pmid",
+        "section_type",
+        "ordinal",
+        "text",
+        "n_deberta_tokens",
+        "n_medcpt_tokens",
+    } <= cols
+
+
+def test_chunks_foreign_key_to_papers(tmp_path):
+    conn = connect(tmp_path / "t.db")
+    init_schema(conn)
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "INSERT INTO chunks (chunk_id, pmid, section_type, ordinal, text, "
+            "n_deberta_tokens, n_medcpt_tokens) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("999_methods_00", "999", "methods", 0, "x", 1, 1),
+        )
+        conn.commit()
+
+
+def test_chunks_indices_exist(tmp_path):
+    conn = connect(tmp_path / "t.db")
+    init_schema(conn)
+    indices = {
+        r[0]
+        for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='chunks'"
+        )
+    }
+    assert any("pmid" in i for i in indices)
+    assert any("section_type" in i for i in indices)
+
+
+def test_chunks_round_trip(tmp_path):
+    conn = connect(tmp_path / "t.db")
+    init_schema(conn)
+    conn.execute(
+        "INSERT INTO papers (pmid, title, fetched_at) VALUES (?, ?, ?)",
+        ("42", "P", "2026-05-25T00:00:00Z"),
+    )
+    conn.execute(
+        "INSERT INTO chunks (chunk_id, pmid, section_type, ordinal, text, "
+        "n_deberta_tokens, n_medcpt_tokens) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("42_methods_00", "42", "methods", 0, "body", 10, 12),
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT chunk_id, pmid, section_type, ordinal, n_deberta_tokens FROM chunks "
+        "WHERE chunk_id='42_methods_00'"
+    ).fetchone()
+    assert row == ("42_methods_00", "42", "methods", 0, 10)
+
+
 def test_insert_or_ignore_idempotent(tmp_path):
     conn = connect(tmp_path / "t.db")
     init_schema(conn)
