@@ -26,6 +26,12 @@ If code conflicts with research docs, research wins. Flag the drift.
 
 Current state lives in `PROGRESS.md`. **Update it before any `/clear` and when crossing a meaningful step** (commit landed, milestone reached, blocker found). Append a one-line entry to `Recent sessions` + edit `Current`.
 
+## Tooling
+
+- `/check` — run all quality gates (ruff lint+format, pytest, phase-isolation, two-client split). Run before any commit.
+- `/progress` — update `PROGRESS.md` (Current + Recent sessions). Run before `/clear` or at a meaningful step.
+- `drift-auditor` agent — audits a diff against the research docs for banned synonyms, phase-isolation breaks, merged clients, and contradictions with locked Q-decisions. Use before committing non-trivial changes.
+
 ## Hard rules
 - TDD always: failing test first, minimal impl, run green. No code without test
 - Three phases (`indexing` / `serving` / `eval`) never import each other. Share via `shared/`.
