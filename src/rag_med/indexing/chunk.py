@@ -10,11 +10,26 @@ chunk_id format: ``{pmid}_{section_type}_{ordinal:02d}`` (glossary).
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 
 from rag_med.shared.db import SECTION_TYPES
 
 logger = logging.getLogger(__name__)
+
+# Standalone supplementary-file markers that pubmed_parser drags into the body
+# paragraph stream (e.g. "(DOCX)", "(TIF)"). Pure noise as a retrieval unit;
+# dropped before chunking. Only matches a *whole* piece that is just the marker
+# — "see supplement (DOCX) for details" keeps its real words.
+_NOISE_RE = re.compile(
+    r"^\W*(?:docx?|tiff?|pdf|xlsx?|csv|pptx?|zip|mp[34]|mov|avi|jpe?g|png|gif|eps|svg)\W*$",
+    re.IGNORECASE,
+)
+
+
+def _is_noise(text: str) -> bool:
+    return bool(_NOISE_RE.match(text.strip()))
+
 
 TARGET_TOKENS = 300
 CEILING_TOKENS = 400
@@ -207,13 +222,15 @@ def chunk_paper(paper: dict) -> list[Chunk]:
 
     for section in paper.get("sections") or []:
         text = (section.get("text") or "").strip()
-        if not text:
+        if not text or _is_noise(text):
             continue
         st = _section_type_for(section.get("section_name") or "")
         if st in {"table", "caption"}:
             chunks.append(_make_chunk(pmid, st, _next(st), text))
             continue
         for piece in _pack(text):
+            if _is_noise(piece):
+                continue
             chunks.append(_make_chunk(pmid, st, _next(st), piece))
 
     return chunks

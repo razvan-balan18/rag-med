@@ -207,6 +207,28 @@ def test_pysbd_does_not_break_medical_abbreviations(monkeypatch):
     assert "p < 0.05" in sentences[1]
 
 
+@pytest.mark.parametrize("marker", ["(DOCX)", "(TIF)", "(PDF)", "(XLSX)", "TIF", "(TIFF)", "(PNG)"])
+def test_supplementary_file_markers_dropped(marker):
+    chunks = chunk_paper(_paper(sections=[{"section_name": "Methods", "text": marker}]))
+    assert chunks == []
+
+
+def test_marker_inside_real_text_is_kept():
+    chunks = chunk_paper(
+        _paper(
+            sections=[{"section_name": "Methods", "text": "See the supplement (DOCX) for details."}]
+        )
+    )
+    methods = [c for c in chunks if c.section_type == "methods"]
+    assert len(methods) == 1
+    assert "DOCX" in methods[0].text
+
+
+def test_noise_table_chunk_dropped():
+    chunks = chunk_paper(_paper(sections=[{"section_name": "Table 1", "text": "(DOCX)"}]))
+    assert chunks == []
+
+
 def test_returns_chunk_dataclass_instances():
     chunks = chunk_paper(_paper(abstract="Some abstract."))
     assert all(isinstance(c, Chunk) for c in chunks)
