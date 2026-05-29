@@ -12,6 +12,10 @@ dependencies = [
     "structlog>=24.0",
     "pysbd>=0.3",
     "transformers>=4.40",
+    "torch>=2.2",
+    "numpy>=1.26",
+    "sentencepiece>=0.2",
+    "protobuf>=4.0",
 ]
 
 [dependency-groups]
