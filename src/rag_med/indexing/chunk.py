@@ -75,22 +75,61 @@ def split_sentences(text: str) -> list[str]:
     return [s.strip() for s in _load_pysbd().segment(text) if s.strip()]
 
 
+# Substring cues mapping real-world JATS subsection headings to the IMRaD enum.
+# Order = IMRaD; methods checked before results so "statistical analysis of
+# results" lands in methods. Keep cues high-confidence to avoid miscategorising.
+_INTRO_CUES = ("intro", "background", "rationale", "objective", "aim", "hypothes")
+_METHODS_CUES = (
+    "method",
+    "material",
+    "statistic",
+    "study design",
+    "study population",
+    "participant",
+    "patient",
+    "subject",
+    "eligib",
+    "inclusion",
+    "exclusion",
+    "data collection",
+    "data source",
+    "search strateg",
+    "measurement",
+    "procedure",
+    "protocol",
+    "sampl",
+    "cohort",
+    "covariat",
+    "intervention",
+    "randomi",
+)
+_RESULTS_CUES = ("result", "outcome", "finding", "baseline characteristic")
+_DISCUSSION_CUES = (
+    "discuss",
+    "conclus",
+    "limitation",
+    "strength",
+    "interpretation",
+    "implication",
+)
+
+
 def _section_type_for(name: str) -> str:
     n = (name or "").lower()
     if "table" in n:
         return "table"
     if "fig" in n or "caption" in n:
         return "caption"
-    if "intro" in n or "background" in n:
-        return "introduction"
-    if "method" in n:
-        return "methods"
-    if "result" in n:
-        return "results"
-    if "discuss" in n or "conclus" in n:
-        return "discussion"
     if "abstract" in n:
         return "abstract"
+    if any(c in n for c in _INTRO_CUES):
+        return "introduction"
+    if any(c in n for c in _METHODS_CUES):
+        return "methods"
+    if any(c in n for c in _RESULTS_CUES):
+        return "results"
+    if any(c in n for c in _DISCUSSION_CUES):
+        return "discussion"
     return "other"
 
 
@@ -159,7 +198,12 @@ def chunk_paper(paper: dict) -> list[Chunk]:
 
     abstract = (paper.get("abstract") or "").strip()
     if abstract:
-        chunks.append(_make_chunk(pmid, "abstract", _next("abstract"), abstract))
+        # Q5: one chunk unless it overflows the ceiling, then pack like a section.
+        if count_deberta_tokens(abstract) > CEILING_TOKENS:
+            for piece in _pack(abstract):
+                chunks.append(_make_chunk(pmid, "abstract", _next("abstract"), piece))
+        else:
+            chunks.append(_make_chunk(pmid, "abstract", _next("abstract"), abstract))
 
     for section in paper.get("sections") or []:
         text = (section.get("text") or "").strip()

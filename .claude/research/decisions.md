@@ -44,6 +44,8 @@ Last updated: 2026-05-11 (Q23 cluster added from final grill: M3/M5 reorder, dev
 - Naive 512-token chunking kept as eval baseline for ablation chart.
 - Claim-aware chunking (D) mentioned as future work in writeup.
 - Side effect: chunk count grows ~20–25% vs the looser 300–500 target. FAISS index ~750 MB instead of ~600 MB. Fits brother's 32 GB RAM trivially.
+- **Drift fix 2026-05-29 (week-2 day-2 real run):** the raw JATS `section_name` → IMRaD enum map was too literal — only exact "Methods"/"Results" titles matched, dumping ~70% of the 100-paper corpus into `other`. Map expanded to high-confidence subsection cues (e.g. `statistical analysis`, `study population`, `eligibility`, `search strategy` → methods; `outcomes`, `baseline characteristics` → results; `limitations`/`strengths` → discussion). Enum unchanged (8 values). Result: `other` 70% → 53%, methods 40 → 360 chunks. Remaining `other` is dominated by untitled (`section_name=''`) body sections — separate parser concern.
+- **Abstract overflow:** Q5 says "abstract = own chunk"; the >400-token split was specced but not implemented — 39/99 abstracts overflowed and were silently truncated to 512 at embed time. Fixed day-2: abstracts >400 DeBERTa tokens now pack like a section (0 overflow chunks after fix).
 
 ### Q6 — Embedding model
 - **MedCPT (`ncbi/MedCPT-Query-Encoder` + `ncbi/MedCPT-Article-Encoder`)** as primary embedder.
