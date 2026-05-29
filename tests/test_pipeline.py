@@ -128,9 +128,7 @@ def test_unparseable_xml_goes_to_failed_papers_with_xml_parse_error():
         )
     )
     assert counters["salvaged"] == 1
-    row = conn.execute(
-        "SELECT failure_reason FROM failed_papers WHERE pmid='55555555'"
-    ).fetchone()
+    row = conn.execute("SELECT failure_reason FROM failed_papers WHERE pmid='55555555'").fetchone()
     assert row == ("xml_parse_error",)
 
 
@@ -149,9 +147,7 @@ def test_pmid_without_pmc_mapping_goes_to_failed_papers():
         )
     )
     assert counters["failed"] == 1
-    row = conn.execute(
-        "SELECT failure_reason FROM failed_papers WHERE pmid='66666666'"
-    ).fetchone()
+    row = conn.execute("SELECT failure_reason FROM failed_papers WHERE pmid='66666666'").fetchone()
     assert row == ("no_content",)
 
 
@@ -226,9 +222,7 @@ def test_efetch_exception_marks_failed_with_xml_parse_error():
         )
     )
     assert counters["failed"] == 1
-    row = conn.execute(
-        "SELECT failure_reason FROM failed_papers WHERE pmid='77777777'"
-    ).fetchone()
+    row = conn.execute("SELECT failure_reason FROM failed_papers WHERE pmid='77777777'").fetchone()
     assert row == ("xml_parse_error",)
 
 

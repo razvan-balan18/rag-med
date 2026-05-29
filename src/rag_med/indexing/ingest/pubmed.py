@@ -1,6 +1,6 @@
 """NCBI E-utilities client: esearch + efetch for PubMed/PMC.
 
-Direct httpx wrappers 
+Direct httpx wrappers
 
 Rate limit: 10 req/s with API key; api_key + email on every request (politeness).
 
@@ -71,9 +71,7 @@ async def _get_with_retry(
                 if attempt == RETRY_ATTEMPTS - 1:
                     break
                 wait = RETRY_BACKOFF_S * (2**attempt)
-                logger.warning(
-                    "retry %d/%d after %.1fs: %s", attempt + 1, RETRY_ATTEMPTS, wait, e
-                )
+                logger.warning("retry %d/%d after %.1fs: %s", attempt + 1, RETRY_ATTEMPTS, wait, e)
                 await asyncio.sleep(wait)
     assert last_exc is not None
     raise last_exc
@@ -110,7 +108,6 @@ async def _efetch(db: str, ids: list[str]) -> bytes:
     async with _client_factory() as client:
         r = await _get_with_retry(client, "/efetch.fcgi", params, sem)
     return r.content
-
 
 
 # pmid - pubmed, can be just abstract and stuff like that   -> pubmed
