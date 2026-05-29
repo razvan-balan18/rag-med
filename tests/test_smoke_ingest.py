@@ -61,6 +61,7 @@ def test_failure_budget(conn):
     assert _count(conn, "SELECT COUNT(*) FROM failed_papers") < FAILED_BUDGET
 
 
+@pytest.mark.network
 def test_idempotent_rerun():
     db = get_settings().sqlite_path
     if not db.exists():
