@@ -80,7 +80,7 @@ async def _get_with_retry(
 
 async def esearch(query: str, retmax: int) -> list[str]:
     """Return PMIDs matching `query`, capped at `retmax`."""
-    
+
     # PMID - pk for paper schema
     # runs the COPD search query -> returns a list of PMIDs
 
@@ -124,6 +124,7 @@ async def efetch_pubmed(pmids: list[str]) -> bytes:
 async def efetch_pmc(pmcids: list[str]) -> bytes:
     """Return raw PMC XML for the given PMCIDs (full-text body)."""
     return await _efetch("pmc", pmcids)
+
 
 async def elink_pubmed_to_pmc(pmids: list[str]) -> dict[str, str]:
     """Map PMIDs -> PMCIDs (with 'PMC' prefix) via NCBI elink.
