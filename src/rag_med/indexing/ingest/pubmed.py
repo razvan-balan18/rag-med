@@ -125,25 +125,6 @@ async def efetch_pmc(pmcids: list[str]) -> bytes:
     """Return raw PMC XML for the given PMCIDs (full-text body)."""
     return await _efetch("pmc", pmcids)
 
-async def elink_pubmed_to_pmc(pmids: list[str]) -> dict[str, str]:
-    """Map PMIDs -> PMCIDs (with 'PMC' prefix) via NCBI elink.
-
-    PMIDs with no PMC counterpart are omitted from the returned dict.
-    Batched: NCBI closes the response stream when ~100 ids are passed in one GET
-    (observed 2026-05-24). Chunk to ELINK_BATCH per request.
-    """
-
-    # only papers with a PMCID have free full -text
-    if not pmids:
-        return {}
-    sem = asyncio.Semaphore(MAX_CONCURRENT)
-    mapping: dict[str, str] = {}
-    async with _client_factory() as client:
-        for i in range(0, len(pmids), ELINK_BATCH):
-            chunk = pmids[i : i + ELINK_BATCH]
-            mapping.update(await _elink_batch(client, sem, chunk))
-    return mapping
-
 
 async def elink_pubmed_to_pmc(pmids: list[str]) -> dict[str, str]:
     """Map PMIDs -> PMCIDs (with 'PMC' prefix) via NCBI elink.

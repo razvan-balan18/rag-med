@@ -174,7 +174,7 @@ def _make_chunk(pmid: str, st: str, ordinal: int, text: str) -> Chunk:
 
 
 def _pack(text: str) -> list[str]:
-    """Split section into sentences, greedy-packs sentences until around 300 deberta tokens, flush at 400 ceiling"""
+    """Split into sentences, greedy-pack until ~300 deberta tokens, flush at 400 ceiling."""
     sentences = split_sentences(text)
     out: list[str] = []
     buf: list[str] = []

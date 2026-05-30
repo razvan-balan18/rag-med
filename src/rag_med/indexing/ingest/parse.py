@@ -13,8 +13,8 @@ the `failed_papers.failure_reason` enum (db.py FAILURE_REASONS):
 Per-paragraph forgiveness: a paragraph that fails to stringify is
 dropped silently; the rest of the paper is kept.
 
-dict shape: {"pmid", "pmcid", "title", "abstract", "sections": [{"section_name", "text"}], "mesh_terms",
-  "journal", "year", "authors"}
+dict shape: {"pmid", "pmcid", "title", "abstract",
+  "sections": [{"section_name", "text"}], "mesh_terms", "journal", "year", "authors"}
 """
 
 from __future__ import annotations
