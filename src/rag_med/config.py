@@ -36,6 +36,16 @@ class Settings(BaseSettings):
     def sqlite_path(self) -> Path:
         return self.data_dir / "sqlite.db"
 
+    @computed_field
+    @property
+    def faiss_index_path(self) -> Path:
+        return self.data_dir / "faiss.index"
+
+    @computed_field
+    @property
+    def faiss_chunk_ids_path(self) -> Path:
+        return self.data_dir / "faiss.chunk_ids.json"
+
     @classmethod
     def settings_customise_sources(
         cls,

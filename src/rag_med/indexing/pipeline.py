@@ -33,6 +33,7 @@ from datetime import UTC, datetime
 import structlog
 
 from rag_med.config import get_settings
+from rag_med.indexing import faiss_build
 from rag_med.indexing.chunk import chunk_paper
 from rag_med.indexing.ingest import parse as parse_mod
 from rag_med.indexing.ingest import pubmed
@@ -260,6 +261,22 @@ def _cli_chunk() -> None:
         conn.close()
 
 
+def _cli_embed() -> None:
+    settings = get_settings()
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    conn = connect(settings.sqlite_path)
+    init_schema(conn)
+    try:
+        counters = faiss_build.run_embed(
+            conn=conn,
+            index_path=settings.faiss_index_path,
+            sidecar_path=settings.faiss_chunk_ids_path,
+        )
+        log.info("run_embed_done", **counters)
+    finally:
+        conn.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     _configure_logging()
     parser = argparse.ArgumentParser(prog="rag_med.indexing.pipeline")
@@ -270,12 +287,15 @@ def main(argv: list[str] | None = None) -> int:
     fetch_p.add_argument("--limit", type=int, default=100)
 
     sub.add_parser("chunk", help="parse stored XML + IMRaD-chunk into chunks table")
+    sub.add_parser("embed", help="embed chunks + build FAISS IndexFlatIP + sidecar")
     args = parser.parse_args(argv)
 
     if args.cmd == "fetch":
         asyncio.run(_cli_fetch(query=QUERY_PRESETS[args.query_preset], limit=args.limit))
     elif args.cmd == "chunk":
         _cli_chunk()
+    elif args.cmd == "embed":
+        _cli_embed()
     return 0
 
 
