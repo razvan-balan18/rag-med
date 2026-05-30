@@ -130,6 +130,7 @@ _DISCUSSION_CUES = (
 
 
 def _section_type_for(name: str) -> str:
+    """Map messy real world heading to one of 8 canonical IMRad buckets"""
     n = (name or "").lower()
     if "table" in n:
         return "table"
@@ -173,6 +174,7 @@ def _make_chunk(pmid: str, st: str, ordinal: int, text: str) -> Chunk:
 
 
 def _pack(text: str) -> list[str]:
+    """Split section into sentences, greedy-packs sentences until around 300 deberta tokens, flush at 400 ceiling"""
     sentences = split_sentences(text)
     out: list[str] = []
     buf: list[str] = []
