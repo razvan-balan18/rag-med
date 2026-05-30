@@ -1,6 +1,6 @@
 """NCBI E-utilities client: esearch + efetch for PubMed/PMC.
 
-Direct httpx wrappers 
+Direct httpx wrappers
 
 Rate limit: 10 req/s with API key; api_key + email on every request (politeness).
 
@@ -55,6 +55,7 @@ async def _get_with_retry(
     params: dict[str, str] | list[tuple[str, str]],
     sem: asyncio.Semaphore,
 ) -> httpx.Response:
+    """3 attempts, exponential backoff on 5xx/network."""
     last_exc: Exception | None = None
     for attempt in range(RETRY_ATTEMPTS):
         async with sem:
@@ -71,9 +72,7 @@ async def _get_with_retry(
                 if attempt == RETRY_ATTEMPTS - 1:
                     break
                 wait = RETRY_BACKOFF_S * (2**attempt)
-                logger.warning(
-                    "retry %d/%d after %.1fs: %s", attempt + 1, RETRY_ATTEMPTS, wait, e
-                )
+                logger.warning("retry %d/%d after %.1fs: %s", attempt + 1, RETRY_ATTEMPTS, wait, e)
                 await asyncio.sleep(wait)
     assert last_exc is not None
     raise last_exc
@@ -81,7 +80,9 @@ async def _get_with_retry(
 
 async def esearch(query: str, retmax: int) -> list[str]:
     """Return PMIDs matching `query`, capped at `retmax`."""
-    # pmid - pk for paper schema
+    
+    # PMID - pk for paper schema
+    # runs the COPD search query -> returns a list of PMIDs
 
     params = {
         "db": "pubmed",
@@ -98,6 +99,7 @@ async def esearch(query: str, retmax: int) -> list[str]:
 
 
 async def _efetch(db: str, ids: list[str]) -> bytes:
+
     if not ids:
         return b""
     params = {
@@ -112,7 +114,6 @@ async def _efetch(db: str, ids: list[str]) -> bytes:
     return r.content
 
 
-
 # pmid - pubmed, can be just abstract and stuff like that   -> pubmed
 # pcmid - full files only ids, can be null if just abstract -> pubmed central
 async def efetch_pubmed(pmids: list[str]) -> bytes:
@@ -123,6 +124,25 @@ async def efetch_pubmed(pmids: list[str]) -> bytes:
 async def efetch_pmc(pmcids: list[str]) -> bytes:
     """Return raw PMC XML for the given PMCIDs (full-text body)."""
     return await _efetch("pmc", pmcids)
+
+async def elink_pubmed_to_pmc(pmids: list[str]) -> dict[str, str]:
+    """Map PMIDs -> PMCIDs (with 'PMC' prefix) via NCBI elink.
+
+    PMIDs with no PMC counterpart are omitted from the returned dict.
+    Batched: NCBI closes the response stream when ~100 ids are passed in one GET
+    (observed 2026-05-24). Chunk to ELINK_BATCH per request.
+    """
+
+    # only papers with a PMCID have free full -text
+    if not pmids:
+        return {}
+    sem = asyncio.Semaphore(MAX_CONCURRENT)
+    mapping: dict[str, str] = {}
+    async with _client_factory() as client:
+        for i in range(0, len(pmids), ELINK_BATCH):
+            chunk = pmids[i : i + ELINK_BATCH]
+            mapping.update(await _elink_batch(client, sem, chunk))
+    return mapping
 
 
 async def _elink_batch(
@@ -152,24 +172,6 @@ async def _elink_batch(
             if links:
                 mapping[pmid] = f"PMC{links[0]}"
             break
-    return mapping
-
-
-async def elink_pubmed_to_pmc(pmids: list[str]) -> dict[str, str]:
-    """Map PMIDs -> PMCIDs (with 'PMC' prefix) via NCBI elink.
-
-    PMIDs with no PMC counterpart are omitted from the returned dict.
-    Batched: NCBI closes the response stream when ~100 ids are passed in one GET
-    (observed 2026-05-24). Chunk to ELINK_BATCH per request.
-    """
-    if not pmids:
-        return {}
-    sem = asyncio.Semaphore(MAX_CONCURRENT)
-    mapping: dict[str, str] = {}
-    async with _client_factory() as client:
-        for i in range(0, len(pmids), ELINK_BATCH):
-            chunk = pmids[i : i + ELINK_BATCH]
-            mapping.update(await _elink_batch(client, sem, chunk))
     return mapping
 
 

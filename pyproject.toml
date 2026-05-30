@@ -12,6 +12,10 @@ dependencies = [
     "structlog>=24.0",
     "pysbd>=0.3",
     "transformers>=4.40",
+    "torch>=2.2",
+    "numpy>=1.26",
+    "sentencepiece>=0.2",
+    "protobuf>=4.0",
 ]
 
 [dependency-groups]
@@ -36,4 +40,7 @@ select = ["E", "F", "I", "B", "UP"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -m 'not network'"
+markers = [
+    "network: hits real NCBI E-utilities; skipped by default, run with `-m network`",
+]

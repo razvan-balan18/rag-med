@@ -10,11 +10,26 @@ chunk_id format: ``{pmid}_{section_type}_{ordinal:02d}`` (glossary).
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 
 from rag_med.shared.db import SECTION_TYPES
 
 logger = logging.getLogger(__name__)
+
+# Standalone supplementary-file markers that pubmed_parser drags into the body
+# paragraph stream (e.g. "(DOCX)", "(TIF)"). Pure noise as a retrieval unit;
+# dropped before chunking. Only matches a *whole* piece that is just the marker
+# — "see supplement (DOCX) for details" keeps its real words.
+_NOISE_RE = re.compile(
+    r"^\W*(?:docx?|tiff?|pdf|xlsx?|csv|pptx?|zip|mp[34]|mov|avi|jpe?g|png|gif|eps|svg)\W*$",
+    re.IGNORECASE,
+)
+
+
+def _is_noise(text: str) -> bool:
+    return bool(_NOISE_RE.match(text.strip()))
+
 
 TARGET_TOKENS = 300
 CEILING_TOKENS = 400
@@ -75,22 +90,62 @@ def split_sentences(text: str) -> list[str]:
     return [s.strip() for s in _load_pysbd().segment(text) if s.strip()]
 
 
+# Substring cues mapping real-world JATS subsection headings to the IMRaD enum.
+# Order = IMRaD; methods checked before results so "statistical analysis of
+# results" lands in methods. Keep cues high-confidence to avoid miscategorising.
+_INTRO_CUES = ("intro", "background", "rationale", "objective", "aim", "hypothes")
+_METHODS_CUES = (
+    "method",
+    "material",
+    "statistic",
+    "study design",
+    "study population",
+    "participant",
+    "patient",
+    "subject",
+    "eligib",
+    "inclusion",
+    "exclusion",
+    "data collection",
+    "data source",
+    "search strateg",
+    "measurement",
+    "procedure",
+    "protocol",
+    "sampl",
+    "cohort",
+    "covariat",
+    "intervention",
+    "randomi",
+)
+_RESULTS_CUES = ("result", "outcome", "finding", "baseline characteristic")
+_DISCUSSION_CUES = (
+    "discuss",
+    "conclus",
+    "limitation",
+    "strength",
+    "interpretation",
+    "implication",
+)
+
+
 def _section_type_for(name: str) -> str:
+    """Map messy real world heading to one of 8 canonical IMRad buckets"""
     n = (name or "").lower()
     if "table" in n:
         return "table"
     if "fig" in n or "caption" in n:
         return "caption"
-    if "intro" in n or "background" in n:
-        return "introduction"
-    if "method" in n:
-        return "methods"
-    if "result" in n:
-        return "results"
-    if "discuss" in n or "conclus" in n:
-        return "discussion"
     if "abstract" in n:
         return "abstract"
+    if any(c in n for c in _INTRO_CUES):
+        return "introduction"
+    if any(c in n for c in _METHODS_CUES):
+        return "methods"
+    if any(c in n for c in _RESULTS_CUES):
+        return "results"
+    if any(c in n for c in _DISCUSSION_CUES):
+        return "discussion"
     return "other"
 
 
@@ -119,6 +174,7 @@ def _make_chunk(pmid: str, st: str, ordinal: int, text: str) -> Chunk:
 
 
 def _pack(text: str) -> list[str]:
+    """Split section into sentences, greedy-packs sentences until around 300 deberta tokens, flush at 400 ceiling"""
     sentences = split_sentences(text)
     out: list[str] = []
     buf: list[str] = []
@@ -159,17 +215,24 @@ def chunk_paper(paper: dict) -> list[Chunk]:
 
     abstract = (paper.get("abstract") or "").strip()
     if abstract:
-        chunks.append(_make_chunk(pmid, "abstract", _next("abstract"), abstract))
+        # Q5: one chunk unless it overflows the ceiling, then pack like a section.
+        if count_deberta_tokens(abstract) > CEILING_TOKENS:
+            for piece in _pack(abstract):
+                chunks.append(_make_chunk(pmid, "abstract", _next("abstract"), piece))
+        else:
+            chunks.append(_make_chunk(pmid, "abstract", _next("abstract"), abstract))
 
     for section in paper.get("sections") or []:
         text = (section.get("text") or "").strip()
-        if not text:
+        if not text or _is_noise(text):
             continue
         st = _section_type_for(section.get("section_name") or "")
         if st in {"table", "caption"}:
             chunks.append(_make_chunk(pmid, st, _next(st), text))
             continue
         for piece in _pack(text):
+            if _is_noise(piece):
+                continue
             chunks.append(_make_chunk(pmid, st, _next(st), piece))
 
     return chunks

@@ -53,7 +53,9 @@ def test_body_xml_present(conn):
     # source_type='full_text' iff parse() returned ≥1 body section -> raw_xml
     # has body content. paper_xml row is inserted alongside, so this is the
     # honest "body XML present" check.
-    assert _count(conn, "SELECT COUNT(*) FROM papers WHERE source_type='full_text'") >= FULLTEXT_GATE
+    assert (
+        _count(conn, "SELECT COUNT(*) FROM papers WHERE source_type='full_text'") >= FULLTEXT_GATE
+    )
     assert _count(conn, "SELECT COUNT(*) FROM paper_xml") >= FULLTEXT_GATE
 
 
@@ -61,6 +63,7 @@ def test_failure_budget(conn):
     assert _count(conn, "SELECT COUNT(*) FROM failed_papers") < FAILED_BUDGET
 
 
+@pytest.mark.network
 def test_idempotent_rerun():
     db = get_settings().sqlite_path
     if not db.exists():
@@ -72,9 +75,7 @@ def test_idempotent_rerun():
             _count(c, "SELECT COUNT(*) FROM paper_xml"),
             _count(c, "SELECT COUNT(*) FROM failed_papers"),
         )
-        asyncio.run(
-            pipe.run_fetch(query=pipe.QUERY_PRESETS["copd-m1"], limit=100, conn=c)
-        )
+        asyncio.run(pipe.run_fetch(query=pipe.QUERY_PRESETS["copd-m1"], limit=100, conn=c))
         after = (
             _count(c, "SELECT COUNT(*) FROM papers"),
             _count(c, "SELECT COUNT(*) FROM paper_xml"),

@@ -33,6 +33,7 @@ from datetime import UTC, datetime
 import structlog
 
 from rag_med.config import get_settings
+from rag_med.indexing.chunk import chunk_paper
 from rag_med.indexing.ingest import parse as parse_mod
 from rag_med.indexing.ingest import pubmed
 from rag_med.shared.db import connect, init_schema
@@ -56,8 +57,7 @@ def _ms_since(t0: float) -> int:
 
 def _insert_failed(conn: sqlite3.Connection, pmid: str, reason: str) -> None:
     conn.execute(
-        "INSERT OR IGNORE INTO failed_papers (pmid, failure_reason, attempted_at) "
-        "VALUES (?, ?, ?)",
+        "INSERT OR IGNORE INTO failed_papers (pmid, failure_reason, attempted_at) VALUES (?, ?, ?)",
         (pmid, reason, _now()),
     )
 
@@ -174,6 +174,59 @@ async def run_fetch(
     return counters
 
 
+def run_chunk(*, conn: sqlite3.Connection) -> dict[str, int]:
+    """Chunk every paper_xml row that has no chunks yet. Idempotent.
+
+    Re-parses stored JATS, backfills the row's pmid (the parser returns an
+    empty pmid against real NCBI XML; see Q22c drift), chunks, and
+    INSERT-OR-IGNOREs. Returns ``{"papers", "chunks"}`` counters.
+    """
+    counters = {"papers": 0, "chunks": 0}
+
+    rows = conn.execute(
+        "SELECT px.pmid, px.raw_xml FROM paper_xml px "
+        "LEFT JOIN chunks c ON c.pmid = px.pmid "
+        "WHERE c.pmid IS NULL"
+    ).fetchall()
+
+    for pmid, raw_xml in rows:
+        t_paper = time.perf_counter()
+        paper, fail_reason = parse_mod.parse(raw_xml)
+        if paper is None:
+            log.warning("chunk_skip_unparseable", pmid=pmid, reason=fail_reason)
+            continue
+
+        paper["pmid"] = pmid
+        chunks = chunk_paper(paper)
+        for ch in chunks:
+            conn.execute(
+                "INSERT OR IGNORE INTO chunks "
+                "(chunk_id, pmid, section_type, ordinal, text, "
+                "n_deberta_tokens, n_medcpt_tokens) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    ch.chunk_id,
+                    ch.pmid,
+                    ch.section_type,
+                    ch.ordinal,
+                    ch.text,
+                    ch.n_deberta_tokens,
+                    ch.n_medcpt_tokens,
+                ),
+            )
+        conn.commit()
+        counters["papers"] += 1
+        counters["chunks"] += len(chunks)
+        log.info(
+            "paper_chunked",
+            pmid=pmid,
+            n_chunks=len(chunks),
+            elapsed_ms=_ms_since(t_paper),
+        )
+
+    return counters
+
+
 def _configure_logging() -> None:
     structlog.configure(
         processors=[
@@ -196,20 +249,33 @@ async def _cli_fetch(query: str, limit: int) -> None:
         conn.close()
 
 
+def _cli_chunk() -> None:
+    settings = get_settings()
+    conn = connect(settings.sqlite_path)
+    init_schema(conn)
+    try:
+        counters = run_chunk(conn=conn)
+        log.info("run_chunk_done", **counters)
+    finally:
+        conn.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     _configure_logging()
     parser = argparse.ArgumentParser(prog="rag_med.indexing.pipeline")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     fetch_p = sub.add_parser("fetch", help="fetch + parse + insert M1 corpus")
-    fetch_p.add_argument(
-        "--query-preset", choices=list(QUERY_PRESETS), default="copd-m1"
-    )
+    fetch_p.add_argument("--query-preset", choices=list(QUERY_PRESETS), default="copd-m1")
     fetch_p.add_argument("--limit", type=int, default=100)
+
+    sub.add_parser("chunk", help="parse stored XML + IMRaD-chunk into chunks table")
     args = parser.parse_args(argv)
 
     if args.cmd == "fetch":
         asyncio.run(_cli_fetch(query=QUERY_PRESETS[args.query_preset], limit=args.limit))
+    elif args.cmd == "chunk":
+        _cli_chunk()
     return 0
 
 

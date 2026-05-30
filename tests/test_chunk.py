@@ -54,6 +54,18 @@ def test_abstract_only_one_chunk():
     assert c.pmid == "12345678"
 
 
+def test_long_abstract_splits_under_ceiling():
+    """Q5: abstract is one chunk unless >400 tokens, then split like a section."""
+    sentence = (" ".join(["word"] * 50)) + "."
+    text = " ".join([sentence] * 12)  # ~600 mock-tokens, 12 sentences
+    chunks = chunk_paper(_paper(abstract=text))
+    abstracts = [c for c in chunks if c.section_type == "abstract"]
+    assert len(abstracts) >= 2
+    for c in abstracts:
+        assert c.n_deberta_tokens <= 400, c.n_deberta_tokens
+    assert [c.ordinal for c in abstracts] == list(range(len(abstracts)))
+
+
 def test_chunk_id_format_regex():
     chunks = chunk_paper(
         _paper(
@@ -89,18 +101,40 @@ def test_section_name_lowercase_substring_mapping():
     assert "other" in by_section
 
 
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("Statistical analysis", "methods"),
+        ("Statistical Analysis", "methods"),
+        ("Study design", "methods"),
+        ("Study population", "methods"),
+        ("Eligibility criteria", "methods"),
+        ("Search strategy", "methods"),
+        ("Data Collection", "methods"),
+        ("Covariates", "methods"),
+        ("Outcomes", "results"),
+        ("Baseline Characteristics", "results"),
+        ("Limitations", "discussion"),
+        ("Strengths and limitations", "discussion"),
+        ("Objectives", "introduction"),
+        # regression: originals still map correctly
+        ("Materials and Methods", "methods"),
+        ("Conclusion", "discussion"),
+        ("Acknowledgements", "other"),
+    ],
+)
+def test_subsection_headings_map_to_imrad(name, expected):
+    assert chunk_mod._section_type_for(name) == expected
+
+
 def test_unknown_section_name_maps_to_other():
-    chunks = chunk_paper(
-        _paper(sections=[{"section_name": "Funding statement", "text": "f."}])
-    )
+    chunks = chunk_paper(_paper(sections=[{"section_name": "Funding statement", "text": "f."}]))
     assert chunks[0].section_type == "other"
 
 
 def test_short_section_one_chunk():
     text = " ".join(["word"] * 200)
-    chunks = chunk_paper(
-        _paper(sections=[{"section_name": "Methods", "text": f"{text}."}])
-    )
+    chunks = chunk_paper(_paper(sections=[{"section_name": "Methods", "text": f"{text}."}]))
     methods = [c for c in chunks if c.section_type == "methods"]
     assert len(methods) == 1
     assert methods[0].n_deberta_tokens == 200
@@ -109,9 +143,7 @@ def test_short_section_one_chunk():
 def test_long_section_splits_into_300_to_400_token_chunks():
     sentence = (" ".join(["word"] * 50)) + "."
     text = " ".join([sentence] * 30)
-    chunks = chunk_paper(
-        _paper(sections=[{"section_name": "Methods", "text": text}])
-    )
+    chunks = chunk_paper(_paper(sections=[{"section_name": "Methods", "text": text}]))
     methods = [c for c in chunks if c.section_type == "methods"]
     assert len(methods) >= 3
     for c in methods[:-1]:
@@ -122,9 +154,7 @@ def test_long_section_splits_into_300_to_400_token_chunks():
 def test_ordinals_are_sequential_per_section():
     sentence = (" ".join(["word"] * 50)) + "."
     text = " ".join([sentence] * 30)
-    chunks = chunk_paper(
-        _paper(sections=[{"section_name": "Methods", "text": text}])
-    )
+    chunks = chunk_paper(_paper(sections=[{"section_name": "Methods", "text": text}]))
     methods = [c for c in chunks if c.section_type == "methods"]
     ordinals = [c.ordinal for c in methods]
     assert ordinals == list(range(len(methods)))
@@ -132,9 +162,7 @@ def test_ordinals_are_sequential_per_section():
 
 def test_table_section_is_own_single_chunk():
     long_table = " ".join(["cell"] * 800) + "."
-    chunks = chunk_paper(
-        _paper(sections=[{"section_name": "Table 1", "text": long_table}])
-    )
+    chunks = chunk_paper(_paper(sections=[{"section_name": "Table 1", "text": long_table}]))
     tables = [c for c in chunks if c.section_type == "table"]
     assert len(tables) == 1
     assert tables[0].n_deberta_tokens == 800
@@ -177,6 +205,28 @@ def test_pysbd_does_not_break_medical_abbreviations(monkeypatch):
     assert "Fig. 1" in sentences[0]
     assert "et al." in sentences[1]
     assert "p < 0.05" in sentences[1]
+
+
+@pytest.mark.parametrize("marker", ["(DOCX)", "(TIF)", "(PDF)", "(XLSX)", "TIF", "(TIFF)", "(PNG)"])
+def test_supplementary_file_markers_dropped(marker):
+    chunks = chunk_paper(_paper(sections=[{"section_name": "Methods", "text": marker}]))
+    assert chunks == []
+
+
+def test_marker_inside_real_text_is_kept():
+    chunks = chunk_paper(
+        _paper(
+            sections=[{"section_name": "Methods", "text": "See the supplement (DOCX) for details."}]
+        )
+    )
+    methods = [c for c in chunks if c.section_type == "methods"]
+    assert len(methods) == 1
+    assert "DOCX" in methods[0].text
+
+
+def test_noise_table_chunk_dropped():
+    chunks = chunk_paper(_paper(sections=[{"section_name": "Table 1", "text": "(DOCX)"}]))
+    assert chunks == []
 
 
 def test_returns_chunk_dataclass_instances():
