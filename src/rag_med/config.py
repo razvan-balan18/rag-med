@@ -46,6 +46,16 @@ class Settings(BaseSettings):
     def faiss_chunk_ids_path(self) -> Path:
         return self.data_dir / "faiss.chunk_ids.json"
 
+    @computed_field
+    @property
+    def bm25_path(self) -> Path:
+        return self.data_dir / "bm25.pkl"
+
+    @computed_field
+    @property
+    def bm25_chunk_ids_path(self) -> Path:
+        return self.data_dir / "bm25.chunk_ids.json"
+
     @classmethod
     def settings_customise_sources(
         cls,
