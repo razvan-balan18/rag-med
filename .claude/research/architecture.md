@@ -382,8 +382,10 @@ User clicks `[3]` in answer. Frontend reads chunk_id 3 from `state.chunks`, then
     warn_threshold_pct: 0.80             # Q21 — log loud + /health.cost_warning when MTD > 80% of cap
   paths:
     faiss: /data/faiss.index
+    faiss_chunk_ids: /data/faiss.chunk_ids.json   # sidecar: FAISS row idx → chunk_id
     sqlite: /data/sqlite.db
     bm25: /data/bm25.pkl
+    bm25_chunk_ids: /data/bm25.chunk_ids.json     # sidecar: BM25 doc idx → chunk_id
   bundle:
     manifest_url: https://huggingface.co/datasets/<user>/rag-med-pneumology-bundle/raw/main/manifest.json
   ```

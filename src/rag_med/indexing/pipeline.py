@@ -33,7 +33,7 @@ from datetime import UTC, datetime
 import structlog
 
 from rag_med.config import get_settings
-from rag_med.indexing import faiss_build
+from rag_med.indexing import bm25_build, faiss_build
 from rag_med.indexing.chunk import chunk_paper
 from rag_med.indexing.ingest import parse as parse_mod
 from rag_med.indexing.ingest import pubmed
@@ -277,6 +277,22 @@ def _cli_embed() -> None:
         conn.close()
 
 
+def _cli_bm25() -> None:
+    settings = get_settings()
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    conn = connect(settings.sqlite_path)
+    init_schema(conn)
+    try:
+        counters = bm25_build.run_bm25(
+            conn=conn,
+            index_path=settings.bm25_path,
+            sidecar_path=settings.bm25_chunk_ids_path,
+        )
+        log.info("run_bm25_done", **counters)
+    finally:
+        conn.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     _configure_logging()
     parser = argparse.ArgumentParser(prog="rag_med.indexing.pipeline")
@@ -288,6 +304,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("chunk", help="parse stored XML + IMRaD-chunk into chunks table")
     sub.add_parser("embed", help="embed chunks + build FAISS IndexFlatIP + sidecar")
+    sub.add_parser("bm25", help="tokenize chunks + build lexical_search BM25 index + sidecar")
     args = parser.parse_args(argv)
 
     if args.cmd == "fetch":
@@ -296,6 +313,8 @@ def main(argv: list[str] | None = None) -> int:
         _cli_chunk()
     elif args.cmd == "embed":
         _cli_embed()
+    elif args.cmd == "bm25":
+        _cli_bm25()
     return 0
 
 
