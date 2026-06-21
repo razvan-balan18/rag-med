@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
 
 from rag_med.shared.db import SECTION_TYPES
+from rag_med.shared.models import Chunk  # re-exported; canonical home is shared/
 
 logger = logging.getLogger(__name__)
 
@@ -33,17 +33,6 @@ def _is_noise(text: str) -> bool:
 
 TARGET_TOKENS = 300
 CEILING_TOKENS = 400
-
-
-@dataclass(frozen=True)
-class Chunk:
-    chunk_id: str
-    pmid: str
-    section_type: str
-    ordinal: int
-    text: str
-    n_deberta_tokens: int
-    n_medcpt_tokens: int
 
 
 _deberta_tok = None
